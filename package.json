@@ -1,7 +1,7 @@
 {
-  "name": "lctt-helper",
-  "displayName": "LCTT Helper",
-  "description": "LCTT Helper by Linux.cn",
+  "name": "lctt-tools",
+  "displayName": "LCTT Tools",
+  "description": "LCTT Tools by Linux.cn",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.80.0"
@@ -16,7 +16,7 @@
   "contributes": {
     "configuration": {
       "title": "LCTT",
-      "displayName": "LCTT",
+      "displayName": "LCTT Tools",
       "order": 0,
       "properties": {
         "lctt.token": {
