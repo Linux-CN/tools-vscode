@@ -9,7 +9,7 @@ let command = os.platform() === 'win32'  ?`start`:"open"
 
 function activate(context) {
 	const template = "<<<<<<<\r\n %2$s \r\n=======\r\n %1$s \r\n>>>>>>>";
-
+	const { token, host } = vscode.workspace.getConfiguration('lctt');
 	let completionRequest = async function (content) {
 		let data = JSON.stringify({
 			"source": content
@@ -20,8 +20,10 @@ function activate(context) {
 			headers: {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${token}`
-			}
+			},
+			timeout: 500
 		};
+		console.debug("host",host,"token",token);
 		return await axios.post(`${host}/api/v1/completions`, data, config);
 	}
 
@@ -29,6 +31,8 @@ function activate(context) {
 		const editor = vscode.window.activeTextEditor;
 		const text = editor.document.getText(editor.selection);
 		const { token, host } = vscode.workspace.getConfiguration('lctt');
+
+		console.debug("host",host,"token",token);
 
 		if(token == ""){
 			vscode.window.showErrorMessage("尚未设置 Token，请设置 Token 后重试","获取并设置 Token").then(result => {
@@ -41,12 +45,15 @@ function activate(context) {
 			return;
 		}
 
+
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: "AI 翻译中..."
 		}, async (progress) => {
+			
 			try {
 				let response = await completionRequest(text);
+				console.debug("response",response);
 				let { target, token } = response.data.data;
 				editor.edit(editBuilder => {
 					editBuilder.replace(editor.selection, printf(template, target, text));
@@ -55,6 +62,12 @@ function activate(context) {
 
 				vscode.window.showInformationMessage(`翻译成功，本次消耗 ${token} 个 Token`);
 			} catch (error) {
+				if(error.code == "ECONNABORTED"){
+					vscode.window.showErrorMessage("翻译失败，请求超时，请联系 @bestony 确认并修复问题后重试。", { modal: true });
+				}
+				if (error.response.status == 401) {
+					vscode.window.showErrorMessage("翻译失败，你的 Token 无法完成验证，请联系 @bestony 确认并修复问题后重试。", { modal: true });
+				}
 				if (error.response.status == 402) {
 					vscode.window.showErrorMessage("翻译失败，你的 Token 不足，请先手动翻译文章，文章被确认后，自动增加 Token。");
 				}
@@ -78,7 +91,7 @@ function activate(context) {
 		if(token == ""){
 			vscode.window.showErrorMessage("尚未设置 Token，请设置 Token 后重试","获取并设置 Token").then(result => {
 				if(result == "获取并设置 Token"){
-					exec(`${command} ${host}/vscode/login`);
+					exec(`${command} ${host}/vscode/guide`);
 				}else {
 
 				}
@@ -96,13 +109,17 @@ function activate(context) {
 				editor.edit(editBuilder => {
 					editBuilder.replace(fullPageRange, printf(template, target, text));
 				})
+				console.log(response);
 				progress.report({ increment: 100, message: "✅ 处理成功" })
 
 				vscode.window.showInformationMessage(`✅ 翻译成功，本次消耗 ${token} 个 Token`);
 			} catch (error) {
 				console.error(error)
+				if (error.response.status == 401) {
+					vscode.window.showErrorMessage("翻译失败，你的 Token 无法完成验证，请联系 @bestony 确认问题。", { modal: true });
+				}
 				if (error.response.status == 402) {
-					vscode.window.showErrorMessage("翻译失败，你的 Token 不足，请先手动翻译文章，文章被确认后，自动增加 Token。", { modal: true });
+					vscode.window.showErrorMessage("翻译失败，你的 Credit 不足，请先手动翻译文章，文章被确认后，自动增加 Token。", { modal: true });
 				}
 				if (error.response.status == 403) {
 					vscode.window.showErrorMessage("翻译失败，你的 Token 权限不足，请前往后台添加 completion:create 权限。", { modal: true },);
